@@ -3,9 +3,15 @@ use termion::event::Key;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+pub struct Position {
+    pub x: usize,
+    pub y: usize,
+}
+
 pub struct Editor {
     should_quit: bool,
     terminal: Terminal,
+    cursor_position: Position,
 }
 
 impl Editor {
@@ -26,6 +32,7 @@ impl Editor {
     pub fn default() -> Self {
         Self {
             should_quit: false,
+            cursor_position: Position { x: 0, y: 0 },
             terminal: Terminal::default().expect("Failed to initialize terminal"),
         }
     }
@@ -34,20 +41,54 @@ impl Editor {
         let pressed_key = Terminal::read_key()?;
         match pressed_key {
             Key::Ctrl('q') => self.should_quit = true,
+            Key::Up
+            | Key::Down
+            | Key::Right
+            | Key::Left
+            | Key::PageUp
+            | Key::PageDown
+            | Key::Home
+            | Key::End => self.move_cursor(pressed_key),
             _ => (),
         }
         Ok(())
     }
 
+    fn move_cursor(&mut self, key: Key) {
+        let Position { mut x, mut y } = self.cursor_position;
+        match key {
+            Key::Up => y = y.saturating_sub(1),
+            Key::Down => {
+                if y < ((self.terminal.size().height) as usize) {
+                    y = y.saturating_add(1);
+                }
+            }
+            Key::Right => {
+                if x < ((self.terminal.size().width) as usize) {
+                    x = x.saturating_add(1);
+                }
+            }
+            Key::Left => x = x.saturating_sub(1),
+            Key::PageDown => y = self.terminal.size().height as usize,
+            Key::PageUp => y = 0,
+            Key::Home => x = 0,
+            Key::End => x = self.terminal.size().width as usize,
+            _ => (),
+        }
+        self.cursor_position.x = x;
+        self.cursor_position.y = y;
+    }
+
     fn refresh_screen(&self) -> Result<(), std::io::Error> {
         // print!("\x1b[2J"); //escape sequence
         Terminal::cursor_hide();
+        Terminal::cursor_position(&Position { x: 0, y: 0 });
         if self.should_quit {
             Terminal::clear_screen();
             println!("GoodBye.\r");
         } else {
             self.draw_rows();
-            Terminal::cursor_position(0, 0);
+            Terminal::cursor_position(&self.cursor_position);
         }
         Terminal::cursor_show();
         Terminal::flush()
