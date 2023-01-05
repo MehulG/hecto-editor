@@ -185,9 +185,16 @@ impl Editor {
             file_name.truncate(20);
         }
         status = format!("{} - {} lines", file_name, self.document.len());
-        if width > status.len() {
-            status.push_str(&" ".repeat(width - status.len()));
+        let line_indicator = format!(
+            "{}/{}",
+            self.cursor_position.y.saturating_add(1),
+            self.document.len()
+        );
+        let len = status.len() + line_indicator.len();
+        if width > len {
+            status.push_str(&" ".repeat(width - len));
         }
+        status = format!("{}{}", status, line_indicator);
         status.truncate(width);
         Terminal::set_bg_color(STATUS_BG_COLOR);
         Terminal::set_fg_color(STATUS_FG_COLOR);
@@ -195,7 +202,7 @@ impl Editor {
         Terminal::reset_fg_color();
         Terminal::reset_bg_color();
     }
-    
+
     fn draw_message_bar(&self) {
         Terminal::clear_current_line();
     }
